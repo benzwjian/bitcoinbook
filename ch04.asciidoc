@@ -749,7 +749,7 @@ xpub67xpozcx8pe95XVuZLHXZeG6XWXHpGq6Qv5cmNfi7cS5mtjJ2tgypeQbBs2UAR6KECeeMVKZBPLr
 [[public__child_key_derivation]]
 ===== Public child key derivation
 
-((("child key derivation (CKD) function","public")))((("hierarchical deterministic wallets (HD wallets)","public child key derivation")))((("public child key derivation")))As mentioned  previously, a very useful characteristic of hierarchical deterministic wallets is the ability to derive public child keys from public parent keys, _without_ having the private keys. This gives us two ways to derive a child public key: either from the child private key, or directly from the parent public key. 
+((("child key derivation (CKD) function","public")))((("hierarchical deterministic wallets (HD wallets)","public child key derivation")))((("public child key derivation")))As mentioned  previously, a very useful characteristic of hierarchical deterministic wallets is the ability to derive public child keys from public parent keys, _without_ having the private keys. `This gives us two ways to derive a child public key: either from the child private key, or directly from the parent public key.` 
 
 An extended public key can be used, therefore, to derive all of the _public_ keys (and only the public keys) in that branch of the HD wallet structure.
 
