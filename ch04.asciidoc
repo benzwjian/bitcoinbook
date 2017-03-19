@@ -53,6 +53,24 @@ image::images/msbt_0401.png["privk_to_pubK_to_addressA"]
 ((("private keys","generating from random numbers", id="ix_ch04-asciidoc3", range="startofrange")))The first and most important step in generating keys is to find a secure source of entropy, or randomness. Creating a bitcoin key is essentially the same as "Pick a number between 1 and 2^256^." The exact method you use to pick that number does not matter as long as it is not predictable or repeatable. Bitcoin software uses the underlying operating system's random number generators to produce 256 bits of entropy (randomness). Usually, the OS random number generator is initialized by a human source of randomness, which is why you may be asked to wiggle your mouse around for a few seconds. For the truly paranoid, nothing beats dice, pencil, and paper.
 
 More accurately, the private key can be any number between +1+ and +n - 1+, where n is a constant (n = 1.158 * 10^77^, slightly less than 2^256^) defined as the order of the elliptic curve used in bitcoin (see <<elliptic_curve>>). To create such a key, we randomly pick a 256-bit number and check that it is less than +n - 1+. In programming terms, this is usually achieved by feeding a larger string of random bits, collected from a cryptographically secure source of randomness, into the SHA256 hash algorithm that will conveniently produce a 256-bit number. If the result is less than +n - 1+, we have a suitable private key. Otherwise, we simply try again with another random number. 
+
+```javascript
+var crypto = require('crypto')
+var BigInt = require('bigi')
+
+var ecurve = require('ecurve')
+var maxBound = ecurve.getCurveByName('secp256k1').n
+
+var number
+
+do {
+  var buf = crypto.randomBytes(32) //32 bytes buffer, 256 bits buffer, or 64 hex digits
+  number = BigInt.fromBuffer(buf)
+} while (number.signum() <= 0 || number.compareTo(maxBound) >= 0)
+
+// signum() refers to https://github.com/andyperlitch/jsbn/blob/master/index.js#L597
+// compareTo() refers to https://github.com/andyperlitch/jsbn/blob/master/index.js#L212
+```
 	
 [TIP]
 ====
