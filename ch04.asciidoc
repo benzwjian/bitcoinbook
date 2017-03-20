@@ -412,7 +412,43 @@ Address: 1PRTTaJesdNovgne6Ehcdu1fpEdX7913CK
 | WIF |  5 | Base58Check encoding: Base58 with version prefix of 128 and 32-bit checksum
 | WIF-compressed | K or L | As above, with added suffix 0x01 before encoding
 |=======
+```javascript
+var base58Check = function (payload) {
+  var version = Buffer.allocUnsafe(1)
+  version.writeUInt8(0x80, 0)
 
+  // prepend version to payload
+  payload = Buffer.concat([version, payload], version.length + payload.length)
+
+  // do double SHA256 to get checksum version+payload
+  var checksum = doubleSha256(payload)
+
+  // append first 4 bytes of checksum to version+payload
+  payload = Buffer.concat([payload, checksum], payload.length + 4)
+
+  return base58.encode(payload)
+}
+
+var wif = function (payload) {
+  return base58Check(payload)
+}
+
+var wifCompressed = function (payload) {
+  var suffix = Buffer.allocUnsafe(1)
+  suffix.writeUInt8(0x01, 0)
+  payload = Buffer.concat([payload, suffix], payload.length + 1)
+  return wif(payload) 
+}
+
+// have a private key
+var privateKey = Buffer.from('1e99423a4ed27608a15a2616a2b0e9e52ced330ac530edcc32c8ffc6a526aedd', 'hex')
+
+// generate WIF: 5J3mBbAH58CpQ3Y5RNJpUKPE62SQ5tfcvU2JpbnkeyhfsYB1Jcn
+var wif = wif(privateKey)
+
+// generate compressed WIF: KxFC1jmwwCoACiCAWZ3eXa96mBM6tb3TYzGmf6YwgdGWZgawvrtJ
+var compressedWIF = wifCompressed(privateKey)
+```
 <<table_4-3>> shows the private key generated in these three formats.
 
 [[table_4-3]]
