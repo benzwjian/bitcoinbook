@@ -307,6 +307,50 @@ The result is composed of three items: a prefix, the data, and a checksum. This 
 .Base58Check encoding: a Base58, versioned, and checksummed format for unambiguously encoding bitcoin data
 image::images/msbt_0406.png["Base58CheckEncoding"]
 
+```javascript
+var crypto = require('crypto')
+var Ripemd160 = require('ripemd160')
+var base58 = require('bs58')
+
+var sha256 = function (buffer) {
+  return crypto.createHash('sha256').update(buffer).digest()
+}
+
+var ripemd160 = function (buffer) {
+  return new Ripemd160().update(buffer).digest()
+}
+
+var doubleHash = function (buffer) {
+  return ripemd160(sha256(buffer))
+}
+
+var doubleSha256 = function (buffer) {
+  return sha256(sha256(buffer))
+}
+
+var base58Check = function (payload) {
+  var version = Buffer.allocUnsafe(1)
+  version.writeUInt8(0x00, 0)
+
+  // prepend version to payload
+  payload = Buffer.concat([version, payload], version.length + payload.length)
+
+  // do double SHA256 to get checksum version+payload
+  var checksum = doubleSha256(payload)
+
+  // append first 4 bytes of checksum to version+payload
+  payload = Buffer.concat([payload, checksum], payload.length + 4)
+
+  return base58.encode(payload)
+}
+
+// have a public key
+var publicKey = Buffer.from('0202a406624211f2abbdc68da3df929f938c3399dd79fac1b51b0e4ad1d26a47aa', 'hex')
+
+// generate bitcoin address: 1PRTTaJesdNovgne6Ehcdu1fpEdX7913CK
+var address = base58Check(doubleHash(publicKey))
+```
+
 In bitcoin, most of the data presented to the user is Base58Check-encoded to make it compact, easy to read, and easy to detect errors. The version prefix in Base58Check encoding is used to create easily distinguishable formats, which when encoded in Base58 contain specific characters at the beginning of the Base58Check-encoded payload. These characters make it easy for humans to identify the type of data that is encoded and how to use it. This is what differentiates, for example, a Base58Check-encoded bitcoin address that starts with a 1 from a Base58Check-encoded private key WIF format that starts with a 5. Some example version prefixes and the resulting Base58 characters are shown in <<base58check_versions>>.((("Base58Check encoding","prefixes, listed")))
 
 [[base58check_versions]]
