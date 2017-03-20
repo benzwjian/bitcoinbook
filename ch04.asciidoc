@@ -499,7 +499,24 @@ wrapper
     version 128
 }
 ----
+```javascript
+var base58 = require('bs58')
 
+var decodeBase58Check = function (data) {
+var buffer = base58.decode(data)
+  return {
+    checksum: buffer.slice(-4).readUInt32LE(),
+    payload: buffer.slice(1, -4).toString('hex'),
+    version: buffer.slice(0, 1).readUInt8()
+  }
+}
+
+// have a private key in WIF
+var wif = '5J3mBbAH58CpQ3Y5RNJpUKPE62SQ5tfcvU2JpbnkeyhfsYB1Jcn'
+
+// get version, payload, checksum
+var wrapper = decodeBase58Check(wif)
+```
 ===== Encode from hex to Base58Check
 
 ((("Base58Check encoding","from hex")))To encode into Base58Check (the opposite of the previous command), we use the((("Bitcoin Explorer","base58check-encode command")))((("base58check-encode command (bx)"))) +base58check-encode+ command from Bitcoin Explorer (see <<libbitcoin>>) and provide the hex private key, followed by the((("Base58Check encoding","WIF prefix for")))((("Wallet Import Format (WIF)"))) Wallet Import Format (WIF) version prefix 128:
