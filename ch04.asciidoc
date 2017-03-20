@@ -479,6 +479,24 @@ image::images/msbt_0407.png["pubkey_compression"]
 K = 03F028892BAD7ED57D2FB57BF33081D5CFCF6F9ED3D3D7F159C2E2FFF579DC341A
 ----
 
+```javascript
+var ecurve = require('ecurve')
+var ecurveSecp256k1 = ecurve.getCurveByName('secp256k1')
+var BigInt = require('bigi')
+
+var privateKey = new Buffer('1E99423A4ED27608A15A2616A2B0E9E52CED330AC530EDCC32C8FFC6A526AEDD', 'hex')
+var bPrivateKey = BigInt.fromBuffer(privateKey)
+
+//get EC points
+var ecPoints = ecurveSecp256k1.G.multiply(bPrivateKey)
+
+//get uncompressed public key: 04F028892BAD7ED57D2FB57BF33081D5CFCF6F9ED3D3D7F159C2E2FFF579DC341A07CF33DA18BD734C600B96A72BBC4749D5141C90EC8AC328AE52DDFE2E505BDB
+var uncompressedPublicKey = ecPoints.getEncoded(false)
+
+//get compressed public key: 03F028892BAD7ED57D2FB57BF33081D5CFCF6F9ED3D3D7F159C2E2FFF579DC341A
+var compressedPublicKey = ecPoints.getEncoded(true)
+```
+
 ((("addresses, bitcoin","converting compressed keys to")))((("compressed keys","converting to bitcoin addresses")))This compressed public key corresponds to the same private key, meaning that it is generated from the same private key. However, it looks different from the uncompressed public key. More importantly, if we convert this compressed public key to a bitcoin address using the double-hash function (+RIPEMD160(SHA256(K))+) it will produce a _different_ bitcoin address. This can be confusing, because it means that a single private key can produce a public key expressed in two different formats (compressed and uncompressed) that produce two different bitcoin addresses. However, the private key is identical for both bitcoin addresses.
 
 ((("blockchains","size of, and compressed public keys")))`Compressed public keys are gradually becoming the default across bitcoin clients, which is having a significant impact on reducing the size of transactions and therefore the blockchain. However, not all clients support compressed public keys yet. Newer clients that support compressed public keys have to account for transactions from older clients that do not support compressed public keys. This is especially important when a wallet application is importing private keys from another bitcoin wallet application, because the new wallet needs to scan the blockchain to find transactions corresponding to these imported keys. Which bitcoin addresses should the bitcoin wallet scan for? The bitcoin addresses produced by uncompressed public keys, or the bitcoin addresses produced by compressed public keys? Both are valid bitcoin addresses, and can be signed for by the private key, but they are different addresses!`
