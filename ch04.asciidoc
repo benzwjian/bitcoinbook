@@ -61,7 +61,23 @@ Why is asymmetric cryptography used in bitcoin? It's not used to "encrypt" (make
 ((("private keys","generating from random numbers", id="ix_ch04-asciidoc3", range="startofrange")))The first and most important step in generating keys is to find a secure source of entropy, or randomness. Creating a bitcoin key is essentially the same as "Pick a number between 1 and 2^256^." The exact method you use to pick that number does not matter as long as it is not predictable or repeatable. Bitcoin software uses the underlying operating system's random number generators to produce 256 bits of entropy (randomness). Usually, the OS random number generator is initialized by a human source of randomness, which is why you may be asked to wiggle your mouse around for a few seconds. For the truly paranoid, nothing beats dice, pencil, and paper.
 
 More accurately, the private key can be any number between +1+ and +n - 1+, where n is a constant (n = 1.158 * 10^77^, slightly less than 2^256^) defined as the order of the elliptic curve used in bitcoin (see <<elliptic_curve>>). To create such a key, we randomly pick a 256-bit number and check that it is less than +n - 1+. In programming terms, this is usually achieved by feeding a larger string of random bits, collected from a cryptographically secure source of randomness, into the SHA256 hash algorithm that will conveniently produce a 256-bit number. If the result is less than +n - 1+, we have a suitable private key. Otherwise, we simply try again with another random number. 
-	
+```javascript
+var crypto = require('crypto')
+var BigInt = require('bigi')
+
+var ecurve = require('ecurve')
+var maxBound = ecurve.getCurveByName('secp256k1').n
+
+var number
+
+do {
+  var buf = crypto.randomBytes(32) //32 bytes buffer, 256 bits buffer, or 64 hex digits
+  number = BigInt.fromBuffer(buf)
+} while (number.signum() <= 0 || number.compareTo(maxBound) >= 0)
+
+// signum() refers to https://github.com/andyperlitch/jsbn/blob/master/index.js#L597
+// compareTo() refers to https://github.com/andyperlitch/jsbn/blob/master/index.js#L212
+```
 [TIP]
 ====
 Do not write your own code to create a random number or use a "simple" random number generator offered by your programming language. Use a((("cryptographically secure pseudo-random number generator (CSPRNG)"))) cryptographically secure pseudo-random number generator (CSPRNG) with a seed from a source of sufficient entropy. Study the documentation of the random number generator library you choose to make sure it is cryptographically secure. Correct implementation of the CSPRNG is critical to the security of the keys.
@@ -299,7 +315,49 @@ The result is composed of three items: a prefix, the data, and a checksum. This 
 [[base58check_encoding]]
 .Base58Check encoding: a Base58, versioned, and checksummed format for unambiguously encoding bitcoin data
 image::images/msbt_0406.png["Base58CheckEncoding"]
+```javascript
+var crypto = require('crypto')
+var Ripemd160 = require('ripemd160')
+var base58 = require('bs58')
 
+var sha256 = function (buffer) {
+  return crypto.createHash('sha256').update(buffer).digest()
+}
+
+var ripemd160 = function (buffer) {
+  return new Ripemd160().update(buffer).digest()
+}
+
+var doubleHash = function (buffer) {
+  return ripemd160(sha256(buffer))
+}
+
+var doubleSha256 = function (buffer) {
+  return sha256(sha256(buffer))
+}
+
+var base58Check = function (payload) {
+  var version = Buffer.allocUnsafe(1)
+  version.writeUInt8(0x00, 0)
+
+  // prepend version to payload
+  payload = Buffer.concat([version, payload], version.length + payload.length)
+
+  // do double SHA256 to get checksum version+payload
+  var checksum = doubleSha256(payload)
+
+  // append first 4 bytes of checksum to version+payload
+  payload = Buffer.concat([payload, checksum], payload.length + 4)
+
+  return base58.encode(payload)
+}
+
+// have a public key
+var publicKey = Buffer.from('0202a406624211f2abbdc68da3df929f938c3399dd79fac1b51b0e4ad1d26a47aa', 'hex')
+
+// generate bitcoin address: 1PRTTaJesdNovgne6Ehcdu1fpEdX7913CK
+var address = base58Check(doubleHash(publicKey))
+```
 In bitcoin, most of the data presented to the user is Base58Check-encoded to make it compact, easy to read, and easy to detect errors. The version prefix in Base58Check encoding is used to create easily distinguishable formats, which when encoded in Base58 contain specific characters at the beginning of the Base58Check-encoded payload. These characters make it easy for humans to identify the type of data that is encoded and how to use it. This is what differentiates, for example, a Base58Check-encoded bitcoin address that starts with a 1 from a Base58Check-encoded private key WIF format that starts with a 5. Some example version prefixes and the resulting Base58 characters are shown in <<base58check_versions>>.((("Base58Check encoding","prefixes, listed")))
 
 [[base58check_versions]]
@@ -362,7 +420,43 @@ Address: 1PRTTaJesdNovgne6Ehcdu1fpEdX7913CK
 | WIF |  5 | Base58Check encoding: Base58 with version prefix of 128 and 32-bit checksum
 | WIF-compressed | K or L | As above, with added suffix 0x01 before encoding
 |=======
+```javascript
+var base58Check = function (payload) {
+  var version = Buffer.allocUnsafe(1)
+  version.writeUInt8(0x80, 0)
 
+  // prepend version to payload
+  payload = Buffer.concat([version, payload], version.length + payload.length)
+
+  // do double SHA256 to get checksum version+payload
+  var checksum = doubleSha256(payload)
+
+  // append first 4 bytes of checksum to version+payload
+  payload = Buffer.concat([payload, checksum], payload.length + 4)
+
+  return base58.encode(payload)
+}
+
+var wif = function (payload) {
+  return base58Check(payload)
+}
+
+var wifCompressed = function (payload) {
+  var suffix = Buffer.allocUnsafe(1)
+  suffix.writeUInt8(0x01, 0)
+  payload = Buffer.concat([payload, suffix], payload.length + 1)
+  return wif(payload) 
+}
+
+// have a private key
+var privateKey = Buffer.from('1e99423a4ed27608a15a2616a2b0e9e52ced330ac530edcc32c8ffc6a526aedd', 'hex')
+
+// generate WIF: 5J3mBbAH58CpQ3Y5RNJpUKPE62SQ5tfcvU2JpbnkeyhfsYB1Jcn
+var wif = wif(privateKey)
+
+// generate compressed WIF: KxFC1jmwwCoACiCAWZ3eXa96mBM6tb3TYzGmf6YwgdGWZgawvrtJ
+var compressedWIF = wifCompressed(privateKey)
+```
 <<table_4-3>> shows the private key generated in these three formats.
 
 [[table_4-3]]
@@ -413,7 +507,24 @@ wrapper
     version 128
 }
 ----
+```javascript
+var base58 = require('bs58')
 
+var decodeBase58Check = function (data) {
+  var buffer = base58.decode(data)
+  return {
+    checksum: buffer.slice(-4).readUInt32LE(),
+    payload: buffer.slice(1, -4).toString('hex'),
+    version: buffer.slice(0, 1).readUInt8()
+  }
+}
+
+// have a private key in WIF
+var wif = '5J3mBbAH58CpQ3Y5RNJpUKPE62SQ5tfcvU2JpbnkeyhfsYB1Jcn'
+
+// get version, payload, checksum
+var wrapper = decodeBase58Check(wif)
+```
 ===== Encode from hex to Base58Check
 
 ((("Base58Check encoding","from hex")))To encode into Base58Check (the opposite of the previous command), we use the((("Bitcoin Explorer","base58check-encode command")))((("base58check-encode command (bx)"))) +base58check-encode+ command from Bitcoin Explorer (see <<libbitcoin>>) and provide the hex private key, followed by the((("Base58Check encoding","WIF prefix for")))((("Wallet Import Format (WIF)"))) Wallet Import Format (WIF) version prefix 128:
@@ -472,7 +583,23 @@ image::images/msbt_0407.png["pubkey_compression"]
 ----
 K = 03F028892BAD7ED57D2FB57BF33081D5CFCF6F9ED3D3D7F159C2E2FFF579DC341A
 ----
+```javascript
+var ecurve = require('ecurve')
+var ecurveSecp256k1 = ecurve.getCurveByName('secp256k1')
+var BigInt = require('bigi')
 
+var privateKey = new Buffer('1E99423A4ED27608A15A2616A2B0E9E52CED330AC530EDCC32C8FFC6A526AEDD', 'hex')
+var bPrivateKey = BigInt.fromBuffer(privateKey)
+
+//get EC points
+var ecPoints = ecurveSecp256k1.G.multiply(bPrivateKey)
+
+//get uncompressed public key: 04F028892BAD7ED57D2FB57BF33081D5CFCF6F9ED3D3D7F159C2E2FFF579DC341A07CF33DA18BD734C600B96A72BBC4749D5141C90EC8AC328AE52DDFE2E505BDB
+var uncompressedPublicKey = ecPoints.getEncoded(false)
+
+//get compressed public key: 03F028892BAD7ED57D2FB57BF33081D5CFCF6F9ED3D3D7F159C2E2FFF579DC341A
+var compressedPublicKey = ecPoints.getEncoded(true)
+```
 ((("addresses, bitcoin","converting compressed keys to")))((("compressed keys","converting to bitcoin addresses")))This compressed public key corresponds to the same private key, meaning that it is generated from the same private key. However, it looks different from the uncompressed public key. More importantly, if we convert this compressed public key to a bitcoin address using the double-hash function (+RIPEMD160(SHA256(K))+) it will produce a _different_ bitcoin address. This can be confusing, because it means that a single private key can produce a public key expressed in two different formats (compressed and uncompressed) that produce two different bitcoin addresses. However, the private key is identical for both bitcoin addresses.
 
 ((("blockchains","size of, and compressed public keys")))Compressed public keys are gradually becoming the default across bitcoin clients, which is having a significant impact on reducing the size of transactions and therefore the blockchain. However, not all clients support compressed public keys yet. Newer clients that support compressed public keys have to account for transactions from older clients that do not support compressed public keys. This is especially important when a wallet application is importing private keys from another bitcoin wallet application, because the new wallet needs to scan the blockchain to find transactions corresponding to these imported keys. Which bitcoin addresses should the bitcoin wallet scan for? The bitcoin addresses produced by uncompressed public keys, or the bitcoin addresses produced by compressed public keys? Both are valid bitcoin addresses, and can be signed for by the private key, but they are different addresses!
