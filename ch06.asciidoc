@@ -458,7 +458,9 @@ For example, let's look at Alice's payment to Bob's Cafe again. Alice made a pay
 ----
 OP_DUP OP_HASH160 <Cafe Public Key Hash> OP_EQUAL OP_CHECKSIG
 ----
-
+```
+This locking script is created by Alice. It identify this output that becomes UTXO in future belongs to Bob. After this transaction is mined, the Bob's wallet will view it as a spendable balance by <Cafe Public Key Hash>. 
+```
 The +Cafe Public Key Hash+ is equivalent to the bitcoin address of the cafe, without the Base58Check encoding. Most applications would show the _public key hash_ in hexadecimal encoding and not the familiar bitcoin address Base58Check format that begins with a "1".
 
 The preceding locking script can be satisfied with an unlocking script of the form:
@@ -466,7 +468,9 @@ The preceding locking script can be satisfied with an unlocking script of the fo
 ----
 <Cafe Signature> <Cafe Public Key>
 ----
-
+```
+After Bob receive a UTXO created by Alice, he decides to spend it. Bob needs to create a unlocking script in an input of new transaction. Bitcoin system will validate the transaction by <Cafe Signature> <Cafe Public Key> combined with locking script.
+```
 The two scripts together would form the following combined validation script:
 
 ----
